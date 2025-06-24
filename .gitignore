@@ -1,0 +1,73 @@
+# ───────────────────────────────
+# Unreal Engine core
+# ───────────────────────────────
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vscode/
+
+# Optional Config backups (can be kept if shared)
+*.opensdf
+*.sdf
+*.suo
+*.user
+*.userprefs
+*.VC.db
+*.VC.opendb
+
+# ───────────────────────────────
+# Compiled object files
+# ───────────────────────────────
+*.obj
+*.pdb
+*.exe
+*.dll
+*.lib
+*.app
+*.dylib
+*.so
+
+# ───────────────────────────────
+# Crash/Debug
+# ───────────────────────────────
+*.log
+*.dmp
+
+# ───────────────────────────────
+# Unreal-specific auto-generated files
+# ───────────────────────────────
+*.xcodeproj
+*.xcworkspace
+*.sln
+*.csproj
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# ───────────────────────────────
+# Node/npm cache (for web or plugins)
+# ───────────────────────────────
+node_modules/
+
+# ───────────────────────────────
+# JetBrains Rider
+# ───────────────────────────────
+.idea/
+
+# ───────────────────────────────
+# Unreal Editor folders (optional to ignore)
+# ───────────────────────────────
+.vscode/
+
+# ───────────────────────────────
+# Optional: Ignore Unreal Engine version control files
+# ───────────────────────────────
+*.uasset
+*.umap
+
+# But you might want to track those ↑ if this is a full game project
+
