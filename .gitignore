@@ -71,3 +71,4 @@ node_modules/
 
 # But you might want to track those ↑ if this is a full game project
 
+.vs/
