@@ -22,38 +22,65 @@ void ACoolSpawner::BeginPlay()
 	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
 	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called"), *Timestamp);
 
-	// Spawn a visible StaticMeshActor using built-in sphere mesh
+	// Spawn blocks to form a pixel-art alpaca shape
 	if (UWorld* World = GetWorld())
 	{
-		FVector Location(0.f, 0.f, 0.f);
-		FRotator Rotation = FRotator::ZeroRotator;
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = this;
-
-		// Spawn a StaticMeshActor
-		AStaticMeshActor* SphereActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
-		if (SphereActor)
+		UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+		if (!CubeMesh)
 		{
-			UStaticMeshComponent* MeshComp = SphereActor->GetStaticMeshComponent();
+			UE_LOG(LogTemp, Warning, TEXT("Failed to load cube mesh"));
+			return;
+		}
 
-			// Load the sphere mesh
-			UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-			if (SphereMesh)
+		// Pixel-art alpaca (side view, 1 = block, 0 = empty)
+		// Each row is Z (height), each col is X (width)
+		TArray<TArray<int>> AlpacaGrid = {
+			//  X: 0 1 2 3 4 5 6 7 8 9
+			{0,0,0,0,1,1,0,0,0,0}, // Z: 11 (top of head/ears)
+			{0,0,0,1,1,1,1,0,0,0}, // 10
+			{0,0,0,1,1,1,1,0,0,0}, // 9
+			{0,0,0,1,1,1,1,0,0,0}, // 8
+			{0,0,0,1,1,1,1,0,0,0}, // 7 (head)
+			{0,0,0,0,1,1,0,0,0,0}, // 6 (neck)
+			{0,0,0,0,1,1,0,0,0,0}, // 5 (neck)
+			{0,0,1,1,1,1,1,1,0,0}, // 4 (body)
+			{0,1,1,1,1,1,1,1,1,0}, // 3 (body)
+			{1,1,1,1,1,1,1,1,1,1}, // 2 (body)
+			{0,0,1,0,0,0,0,1,0,0}, // 1 (legs)
+			{0,0,1,0,0,0,0,1,0,0}, // 0 (feet)
+		};
+
+		const float BlockSize = 8.0f; // Small block size for detail
+		const float Scale = 0.18f;    // Block scale for detail
+		const int Rows = AlpacaGrid.Num();
+		const int Cols = AlpacaGrid[0].Num();
+		const float OriginX = -((Cols-1) * BlockSize) / 2.0f;
+		const float OriginZ = 0.0f;
+
+		int BlockCount = 0;
+		for (int z = 0; z < Rows; ++z)
+		{
+			for (int x = 0; x < Cols; ++x)
 			{
-				MeshComp->SetStaticMesh(SphereMesh);
-				MeshComp->SetMobility(EComponentMobility::Movable);
-				SphereActor->SetActorScale3D(FVector(1.0f));
-				UE_LOG(LogTemp, Log, TEXT("Spawned sphere actor at (0,0,0)"));
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Failed to load sphere mesh"));
+				if (AlpacaGrid[z][x] == 1)
+				{
+					FVector Location(OriginX + x * BlockSize, 0, OriginZ + (Rows-1-z) * BlockSize);
+					FRotator Rotation = FRotator::ZeroRotator;
+					FActorSpawnParameters SpawnParams;
+					SpawnParams.Owner = this;
+					AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+					if (BoxActor)
+					{
+						UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
+						MeshComp->SetStaticMesh(CubeMesh);
+						MeshComp->SetMobility(EComponentMobility::Movable);
+						BoxActor->SetActorScale3D(FVector(Scale));
+						++BlockCount;
+					}
+				}
 			}
 		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to spawn StaticMeshActor"));
-		}
+		UE_LOG(LogTemp, Log, TEXT("Spawned %d blocks for pixel-art alpaca!"), BlockCount);
 	}
 }
 
@@ -62,3 +89,4 @@ void ACoolSpawner::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
+
