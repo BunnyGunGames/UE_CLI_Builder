@@ -20,7 +20,7 @@ void ACoolSpawner::BeginPlay()
 
 	// Timestamp log
 	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
-	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called"), *Timestamp);
+	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called!!!"), *Timestamp);
 
 	// Spawn blocks to form a pixel-art alpaca shape
 	if (UWorld* World = GetWorld())
