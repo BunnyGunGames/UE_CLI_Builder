@@ -22,7 +22,7 @@ void ACoolSpawner::BeginPlay()
 	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
 	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called!!!"), *Timestamp);
 
-	// Spawn blocks in a spiral pattern
+	// Spawn blocks in a square pattern
 	if (UWorld* World = GetWorld())
 	{
 		UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -32,74 +32,50 @@ void ACoolSpawner::BeginPlay()
 			return;
 		}
 
-		const int BlocksPerDiagonal = 11; // Number of blocks per diagonal (center shared)
-		const float XLength = 240.0f;    // Length of the X arms
-		const float BoxScale = 0.23f;    // Box scale
-		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Center of X
+		const int SquareSize = 8;           // Size of the square (8x8 = 64 blocks)
+		const float BlockSpacing = 30.0f;   // Space between each block
+		const float BoxScale = 0.25f;       // Box scale
+		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Center of square
 
 		int BlockCount = 0;
-		// First diagonal: bottom-left to top-right
-		for (int i = 0; i < BlocksPerDiagonal; ++i)
+		
+		// Calculate the starting position to center the square
+		float StartX = StartLocation.X - (SquareSize - 1) * BlockSpacing * 0.5f;
+		float StartY = StartLocation.Y - (SquareSize - 1) * BlockSpacing * 0.5f;
+		
+		// Create square formation
+		for (int row = 0; row < SquareSize; ++row)
 		{
-			float t = (float)i / (BlocksPerDiagonal - 1); // 0 to 1
-			float X = StartLocation.X + (t - 0.5f) * XLength;
-			float Y = StartLocation.Y + (t - 0.5f) * XLength;
-			float Z = 0.0f;
-
-			FVector Location(X, Y, Z);
-			FRotator Rotation = FRotator::ZeroRotator;
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = this;
-
-			AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
-			if (BoxActor)
+			for (int col = 0; col < SquareSize; ++col)
 			{
-				UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
-				MeshComp->SetStaticMesh(CubeMesh);
-				MeshComp->SetMobility(EComponentMobility::Movable);
-				BoxActor->SetActorScale3D(FVector(BoxScale));
+				float X = StartX + col * BlockSpacing;
+				float Y = StartY + row * BlockSpacing;
+				float Z = 0.0f;
 
-				// Apply the selected material if one is assigned
-				if (BlockMaterial)
+				FVector Location(X, Y, Z);
+				FRotator Rotation = FRotator::ZeroRotator;
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = this;
+
+				AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+				if (BoxActor)
 				{
-					MeshComp->SetMaterial(0, BlockMaterial);
-				}
+					UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
+					MeshComp->SetStaticMesh(CubeMesh);
+					MeshComp->SetMobility(EComponentMobility::Movable);
+					BoxActor->SetActorScale3D(FVector(BoxScale));
 
-				++BlockCount;
+					// Apply the selected material if one is assigned
+					if (BlockMaterial)
+					{
+						MeshComp->SetMaterial(0, BlockMaterial);
+					}
+
+					++BlockCount;
+				}
 			}
 		}
-		// Second diagonal: top-left to bottom-right (skip center block to avoid overlap)
-		for (int i = 0; i < BlocksPerDiagonal; ++i)
-		{
-			if (i == BlocksPerDiagonal / 2) continue; // Skip center
-			float t = (float)i / (BlocksPerDiagonal - 1); // 0 to 1
-			float X = StartLocation.X + (t - 0.5f) * XLength;
-			float Y = StartLocation.Y - (t - 0.5f) * XLength;
-			float Z = 0.0f;
-
-			FVector Location(X, Y, Z);
-			FRotator Rotation = FRotator::ZeroRotator;
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = this;
-
-			AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
-			if (BoxActor)
-			{
-				UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
-				MeshComp->SetStaticMesh(CubeMesh);
-				MeshComp->SetMobility(EComponentMobility::Movable);
-				BoxActor->SetActorScale3D(FVector(BoxScale));
-
-				// Apply the selected material if one is assigned
-				if (BlockMaterial)
-				{
-					MeshComp->SetMaterial(0, BlockMaterial);
-				}
-
-				++BlockCount;
-			}
-		}
-		UE_LOG(LogTemp, Log, TEXT("Spawned %d boxes in X pattern!"), BlockCount);
+		UE_LOG(LogTemp, Log, TEXT("Spawned %d boxes in square pattern!"), BlockCount);
 	}
 }
 
