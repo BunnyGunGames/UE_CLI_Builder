@@ -34,7 +34,7 @@ void ACoolSpawner::BeginPlay()
 
 		const int SquareSize = 8;           // Size of the square (8x8 = 64 blocks)
 		const float BlockSpacing = 30.0f;   // Space between each block
-		const float BoxScale = 0.25f;       // Box scale
+		const float BoxScale = 0.1f;       // Box scale
 		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Center of square
 
 		int BlockCount = 0;
