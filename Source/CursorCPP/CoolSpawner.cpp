@@ -22,7 +22,7 @@ void ACoolSpawner::BeginPlay()
 	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
 	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called!!!"), *Timestamp);
 
-	// Spawn blocks in a square pattern
+	// Spawn blocks in a spiral pattern
 	if (UWorld* World = GetWorld())
 	{
 		UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -32,50 +32,48 @@ void ACoolSpawner::BeginPlay()
 			return;
 		}
 
-		const int SquareSize = 8;           // Size of the square (8x8 = 64 blocks)
-		const float BlockSpacing = 30.0f;   // Space between each block
-		const float BoxScale = 0.1f;       // Box scale
-		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Center of square
+		const int NumBlocks = 80;           // Number of blocks in the spiral staircase
+		const float SpiralStartRadius = 20.0f; // Starting radius of the spiral
+		const float SpiralRadiusStep = 6.0f;   // How much the radius increases per block
+		const float AngleStepDeg = 12.0f;      // How much the angle increases per block (degrees)
+		const float HeightStep = 4.0f;         // How much the height increases per block
+		const float BoxScale = 0.25f;          // Box scale
+		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Center of spiral
 
 		int BlockCount = 0;
 		
-		// Calculate the starting position to center the square
-		float StartX = StartLocation.X - (SquareSize - 1) * BlockSpacing * 0.5f;
-		float StartY = StartLocation.Y - (SquareSize - 1) * BlockSpacing * 0.5f;
-		
-		// Create square formation
-		for (int row = 0; row < SquareSize; ++row)
+		// Create spiral staircase formation
+		for (int i = 0; i < NumBlocks; ++i)
 		{
-			for (int col = 0; col < SquareSize; ++col)
+			float AngleRad = FMath::DegreesToRadians(i * AngleStepDeg);
+			float Radius = SpiralStartRadius + i * SpiralRadiusStep;
+			float X = StartLocation.X + FMath::Cos(AngleRad) * Radius;
+			float Y = StartLocation.Y + FMath::Sin(AngleRad) * Radius;
+			float Z = StartLocation.Z + i * HeightStep; // Staircase effect - each block is higher
+
+			FVector Location(X, Y, Z);
+			FRotator Rotation = FRotator::ZeroRotator;
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = this;
+
+			AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+			if (BoxActor)
 			{
-				float X = StartX + col * BlockSpacing;
-				float Y = StartY + row * BlockSpacing;
-				float Z = 0.0f;
+				UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
+				MeshComp->SetStaticMesh(CubeMesh);
+				MeshComp->SetMobility(EComponentMobility::Movable);
+				BoxActor->SetActorScale3D(FVector(BoxScale));
 
-				FVector Location(X, Y, Z);
-				FRotator Rotation = FRotator::ZeroRotator;
-				FActorSpawnParameters SpawnParams;
-				SpawnParams.Owner = this;
-
-				AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
-				if (BoxActor)
+				// Apply the selected material if one is assigned
+				if (BlockMaterial)
 				{
-					UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
-					MeshComp->SetStaticMesh(CubeMesh);
-					MeshComp->SetMobility(EComponentMobility::Movable);
-					BoxActor->SetActorScale3D(FVector(BoxScale));
-
-					// Apply the selected material if one is assigned
-					if (BlockMaterial)
-					{
-						MeshComp->SetMaterial(0, BlockMaterial);
-					}
-
-					++BlockCount;
+					MeshComp->SetMaterial(0, BlockMaterial);
 				}
+
+				++BlockCount;
 			}
 		}
-		UE_LOG(LogTemp, Log, TEXT("Spawned %d boxes in square pattern!"), BlockCount);
+		UE_LOG(LogTemp, Log, TEXT("Spawned %d boxes in spiral staircase pattern!"), BlockCount);
 	}
 }
 
