@@ -59,11 +59,6 @@ node_modules/
 .idea/
 
 # ───────────────────────────────
-# Unreal Editor folders (optional to ignore)
-# ───────────────────────────────
-.vscode/
-
-# ───────────────────────────────
 # Optional: Ignore Unreal Engine version control files
 # ───────────────────────────────
 *.uasset

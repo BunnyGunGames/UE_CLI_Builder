@@ -11,5 +11,3 @@ set UBT_PATH="%UE_PATH%\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.e
 %UBT_PATH% ^
   -Project="%~dp0CursorCPP.uproject" ^
   CursorCPPEditor Win64 Development -HotReload
-
-pause
