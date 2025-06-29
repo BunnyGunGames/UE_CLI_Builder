@@ -22,7 +22,7 @@ void ACoolSpawner::BeginPlay()
 	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
 	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called!!!"), *Timestamp);
 
-	// Spawn blocks to form a pixel-art alpaca shape
+	// Spawn blocks in a grid pattern
 	if (UWorld* World = GetWorld())
 	{
 		UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -32,55 +32,50 @@ void ACoolSpawner::BeginPlay()
 			return;
 		}
 
-		// Pixel-art alpaca (side view, 1 = block, 0 = empty)
-		// Each row is Z (height), each col is X (width)
-		TArray<TArray<int>> AlpacaGrid = {
-			//  X: 0 1 2 3 4 5 6 7 8 9
-			{0,0,0,0,1,1,0,0,0,0}, // Z: 11 (top of head/ears)
-			{0,0,0,1,1,1,1,0,0,0}, // 10
-			{0,0,0,1,1,1,1,0,0,0}, // 9
-			{0,0,0,1,1,1,1,0,0,0}, // 8
-			{0,0,0,1,1,1,1,0,0,0}, // 7 (head)
-			{0,0,0,0,1,1,0,0,0,0}, // 6 (neck)
-			{0,0,0,0,1,1,0,0,0,0}, // 5 (neck)
-			{0,0,1,1,1,1,1,1,0,0}, // 4 (body)
-			{0,1,1,1,1,1,1,1,1,0}, // 3 (body)
-			{1,1,1,1,1,1,1,1,1,1}, // 2 (body)
-			{0,0,1,0,0,0,0,1,0,0}, // 1 (legs)
-			{0,0,1,0,0,0,0,1,0,0}, // 0 (feet)
-		};
-
-		const float BlockSize = 8.0f; // Small block size for detail
-		const float Scale = 0.18f;    // Block scale for detail
-		const int Rows = AlpacaGrid.Num();
-		const int Cols = AlpacaGrid[0].Num();
-		const float OriginX = -((Cols-1) * BlockSize) / 2.0f;
-		const float OriginZ = 0.0f;
+		const int GridRows = 3;              // Number of rows in the grid
+		const int GridCols = 4;              // Number of columns in the grid (3x4 = 12, but we'll only spawn 10)
+		const float BoxSpacing = 24.0f;      // Space between each box (increased)
+		const float BoxScale = 0.2f;         // Box scale
+		const FVector StartLocation = FVector(0.0f, 0.0f, 0.0f); // Starting position
 
 		int BlockCount = 0;
-		for (int z = 0; z < Rows; ++z)
+		int MaxBlocks = 10; // Only spawn 10 boxes
+
+		for (int row = 0; row < GridRows && BlockCount < MaxBlocks; ++row)
 		{
-			for (int x = 0; x < Cols; ++x)
+			for (int col = 0; col < GridCols && BlockCount < MaxBlocks; ++col)
 			{
-				if (AlpacaGrid[z][x] == 1)
+				// Calculate position in grid
+				float X = StartLocation.X + (col * BoxSpacing);
+				float Y = StartLocation.Y + (row * BoxSpacing);
+				float Z = StartLocation.Z;
+				
+				// Spawn the box
+				FVector Location(X, Y, Z);
+				FRotator Rotation = FRotator::ZeroRotator;
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = this;
+				
+				AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+				if (BoxActor)
 				{
-					FVector Location(OriginX + x * BlockSize, 0, OriginZ + (Rows-1-z) * BlockSize);
-					FRotator Rotation = FRotator::ZeroRotator;
-					FActorSpawnParameters SpawnParams;
-					SpawnParams.Owner = this;
-					AStaticMeshActor* BoxActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
-					if (BoxActor)
+					UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
+					MeshComp->SetStaticMesh(CubeMesh);
+					MeshComp->SetMobility(EComponentMobility::Movable);
+					BoxActor->SetActorScale3D(FVector(BoxScale));
+					
+					// Apply the selected material if one is assigned
+					if (BlockMaterial)
 					{
-						UStaticMeshComponent* MeshComp = BoxActor->GetStaticMeshComponent();
-						MeshComp->SetStaticMesh(CubeMesh);
-						MeshComp->SetMobility(EComponentMobility::Movable);
-						BoxActor->SetActorScale3D(FVector(Scale));
-						++BlockCount;
+						MeshComp->SetMaterial(0, BlockMaterial);
 					}
+					
+					++BlockCount;
 				}
 			}
 		}
-		UE_LOG(LogTemp, Log, TEXT("Spawned %d blocks for pixel-art alpaca!"), BlockCount);
+		
+		UE_LOG(LogTemp, Log, TEXT("Spawned %d boxes in grid pattern!"), BlockCount);
 	}
 }
 
