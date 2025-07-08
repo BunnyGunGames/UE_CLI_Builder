@@ -118,10 +118,14 @@ void ACoolSpawner::Tick(float DeltaTime)
 		if (BoxData.bIsAnimating)
 		{
 			float AnimationTime = CurrentTime - BoxData.StartTime;
-			float AnimationProgress = FMath::Clamp(AnimationTime / AnimationDuration, 0.0f, 1.0f);
 			
-			// Use a smooth easing function for the animation
-			float EasedProgress = FMath::InterpEaseOut(0.0f, 1.0f, AnimationProgress, 2.0f);
+			// Create a looping animation cycle
+			float CycleTime = AnimationDuration * 2.0f; // Full cycle (up + down)
+			float CycleProgress = FMath::Fmod(AnimationTime, CycleTime) / CycleTime; // 0.0 to 1.0
+			
+			// Create a sine wave pattern for smooth up and down motion
+			float SineValue = FMath::Sin(CycleProgress * 2.0f * PI);
+			float EasedProgress = (SineValue + 1.0f) * 0.5f; // Convert from -1,1 to 0,1
 			
 			// Calculate new Z position
 			float NewZ = BoxData.OriginalZ + (MaxHeightIncrease * EasedProgress);
