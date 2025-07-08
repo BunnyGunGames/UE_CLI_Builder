@@ -6,6 +6,11 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Json.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
+#include "InputTriggers.h"
 
 // Sets default values
 ACoolSpawner::ACoolSpawner()
@@ -17,6 +22,32 @@ ACoolSpawner::ACoolSpawner()
 void ACoolSpawner::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// --- Enhanced Input Setup ---
+	// Create Input Action
+	LeftClickAction = NewObject<UInputAction>(this, TEXT("LeftClickAction"));
+	LeftClickAction->ValueType = EInputActionValueType::Boolean;
+
+	// Create Mapping Context
+	MappingContext = NewObject<UInputMappingContext>(this, TEXT("CoolSpawnerMappingContext"));
+	MappingContext->MapKey(LeftClickAction, EKeys::LeftMouseButton);
+
+	// Add Mapping Context to Player
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (ULocalPlayer* LP = PC->GetLocalPlayer())
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+			{
+				Subsystem->AddMappingContext(MappingContext, 0);
+			}
+		}
+		// Bind the action
+		if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PC->InputComponent))
+		{
+			EnhancedInput->BindAction(LeftClickAction, ETriggerEvent::Started, this, &ACoolSpawner::OnLeftMouseClick);
+		}
+	}
 
 	// Read Data/data.json for box data
 	FString JsonFilePath = FPaths::ProjectDir() + TEXT("Data/data.json");
@@ -67,8 +98,8 @@ void ACoolSpawner::BeginPlay()
 		if (CubeActor)
 		{
 			UStaticMeshComponent* MeshComp = CubeActor->GetStaticMeshComponent();
-			MeshComp->SetStaticMesh(CubeMesh);
 			MeshComp->SetMobility(EComponentMobility::Movable);
+			MeshComp->SetStaticMesh(CubeMesh);
 			CubeActor->SetActorScale3D(FVector(1.0f));
 			
 			// Apply material if available
@@ -134,6 +165,80 @@ void ACoolSpawner::Tick(float DeltaTime)
 			FVector CurrentLocation = BoxData.Actor->GetActorLocation();
 			BoxData.Actor->SetActorLocation(FVector(CurrentLocation.X, CurrentLocation.Y, NewZ));
 		}
+	}
+}
+
+void ACoolSpawner::OnLeftMouseClick()
+{
+	SpawnRandomBlock();
+}
+
+void ACoolSpawner::SpawnRandomBlock()
+{
+	UWorld* World = GetWorld();
+	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (!World || !CubeMesh) return;
+
+	// Find the average position of existing blocks
+	FVector Center(0, 0, 0);
+	int32 Count = 0;
+	for (const FBoxData& BoxData : SpawnedBoxes)
+	{
+		if (BoxData.Actor && BoxData.Actor->IsValidLowLevel())
+		{
+			Center += BoxData.Actor->GetActorLocation();
+			++Count;
+		}
+	}
+	if (Count > 0) Center /= Count;
+	else Center = FVector(0, 0, 0);
+
+	// Try to find a non-overlapping location
+	FVector NewLocation;
+	const float MinDistance = 120.0f; // Minimum distance from other blocks
+	const int MaxTries = 20;
+	bool bFound = false;
+	for (int i = 0; i < MaxTries && !bFound; ++i)
+	{
+		float Angle = FMath::RandRange(0.0f, 2.0f * PI);
+		float Radius = FMath::RandRange(180.0f, 300.0f);
+		NewLocation = Center + FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0);
+		bFound = true;
+		for (const FBoxData& BoxData : SpawnedBoxes)
+		{
+			if (BoxData.Actor && BoxData.Actor->IsValidLowLevel())
+			{
+				if (FVector::Dist2D(BoxData.Actor->GetActorLocation(), NewLocation) < MinDistance)
+				{
+					bFound = false;
+					break;
+				}
+			}
+		}
+	}
+	if (!bFound) return; // Could not find a spot
+
+	// Spawn the new cube
+	FRotator Rotation = FRotator::ZeroRotator;
+	FActorSpawnParameters SpawnParams;
+	AStaticMeshActor* CubeActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), NewLocation, Rotation, SpawnParams);
+	if (CubeActor)
+	{
+		UStaticMeshComponent* MeshComp = CubeActor->GetStaticMeshComponent();
+		MeshComp->SetMobility(EComponentMobility::Movable);
+		MeshComp->SetStaticMesh(CubeMesh);
+		CubeActor->SetActorScale3D(FVector(1.0f));
+		if (BlockMaterial)
+		{
+			MeshComp->SetMaterial(0, BlockMaterial);
+		}
+		// Add to animation array, start animating immediately
+		FBoxData BoxData;
+		BoxData.Actor = CubeActor;
+		BoxData.OriginalZ = NewLocation.Z;
+		BoxData.StartTime = GetWorld()->GetTimeSeconds() - AnimationStartTime; // Start now
+		BoxData.bIsAnimating = true;
+		SpawnedBoxes.Add(BoxData);
 	}
 }
 

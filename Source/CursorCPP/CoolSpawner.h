@@ -57,6 +57,17 @@ private:
 	// Timer to track when animation started
 	float AnimationStartTime;
 
+	// Enhanced Input
+	UPROPERTY()
+	class UInputAction* LeftClickAction;
+	UPROPERTY()
+	class UInputMappingContext* MappingContext;
+
+	// Helper to spawn a new block at a random, non-overlapping location
+	void SpawnRandomBlock();
+
+	void OnLeftMouseClick();
+
 public:	
 	virtual void Tick(float DeltaTime) override;
 };
