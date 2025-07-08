@@ -18,7 +18,7 @@ void ACoolSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Read Data/data.json for box count
+	// Read Data/data.json for box data
 	FString JsonFilePath = FPaths::ProjectDir() + TEXT("Data/data.json");
 	FString JsonString;
 	if (!FFileHelper::LoadFileToString(JsonString, *JsonFilePath))
@@ -29,23 +29,34 @@ void ACoolSpawner::BeginPlay()
 
 	TArray<TSharedPtr<FJsonValue>> JsonArray;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
-	if (!FJsonSerializer::Deserialize(Reader, JsonArray) || JsonArray.Num() == 0 || !JsonArray[0]->AsObject().IsValid())
+	if (!FJsonSerializer::Deserialize(Reader, JsonArray))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Failed to parse JSON array from %s"), *JsonFilePath);
 		return;
 	}
 
-	TSharedPtr<FJsonObject> JsonObject = JsonArray[0]->AsObject();
-	int32 BoxCount = JsonObject->GetIntegerField(TEXT("boxes"));
-
-	// Spawn cubes in a row
+	// Spawn cubes based on JSON data
 	UWorld* World = GetWorld();
 	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (!World || !CubeMesh) return;
 
-	for (int32 i = 0; i < BoxCount; ++i)
+	for (const TSharedPtr<FJsonValue>& JsonValue : JsonArray)
 	{
-		FVector Location(i * 120.0f, 0.0f, 50.0f);
+		if (!JsonValue->AsObject().IsValid())
+		{
+			continue;
+		}
+
+		TSharedPtr<FJsonObject> BoxObject = JsonValue->AsObject();
+		
+		// Get box properties
+		int32 BoxNumber = BoxObject->GetIntegerField(TEXT("box"));
+		float X = BoxObject->GetNumberField(TEXT("x"));
+		float Y = BoxObject->GetNumberField(TEXT("y"));
+		float Z = BoxObject->GetNumberField(TEXT("z"));
+
+		// Spawn cube at specified coordinates
+		FVector Location(X, Y, Z);
 		FRotator Rotation = FRotator::ZeroRotator;
 		FActorSpawnParameters SpawnParams;
 		AStaticMeshActor* CubeActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
@@ -55,6 +66,14 @@ void ACoolSpawner::BeginPlay()
 			MeshComp->SetStaticMesh(CubeMesh);
 			MeshComp->SetMobility(EComponentMobility::Movable);
 			CubeActor->SetActorScale3D(FVector(1.0f));
+			
+			// Apply material if available
+			if (BlockMaterial)
+			{
+				MeshComp->SetMaterial(0, BlockMaterial);
+			}
+			
+			UE_LOG(LogTemp, Log, TEXT("Spawned box %d at location (%f, %f, %f)"), BoxNumber, X, Y, Z);
 		}
 	}
 }
