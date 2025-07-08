@@ -2,11 +2,10 @@
 #include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 #include "Components/StaticMeshComponent.h"
-#include "UObject/ConstructorHelpers.h"
-#include "GameFramework/Actor.h"
-#include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
-#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Json.h"
 
 // Sets default values
 ACoolSpawner::ACoolSpawner()
@@ -19,89 +18,43 @@ void ACoolSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Timestamp log
-	FString Timestamp = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
-	UE_LOG(LogTemp, Log, TEXT("[%s] CoolSpawner BeginPlay called!!!"), *Timestamp);
-
-	// Spawn a physics ball and floor
-	if (UWorld* World = GetWorld())
+	// Read Data/data.json for box count
+	FString JsonFilePath = FPaths::ProjectDir() + TEXT("Data/data.json");
+	FString JsonString;
+	if (!FFileHelper::LoadFileToString(JsonString, *JsonFilePath))
 	{
-		// Load sphere mesh for the ball
-		UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-		if (!SphereMesh)
+		UE_LOG(LogTemp, Warning, TEXT("Failed to load %s"), *JsonFilePath);
+		return;
+	}
+
+	TArray<TSharedPtr<FJsonValue>> JsonArray;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
+	if (!FJsonSerializer::Deserialize(Reader, JsonArray) || JsonArray.Num() == 0 || !JsonArray[0]->AsObject().IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to parse JSON array from %s"), *JsonFilePath);
+		return;
+	}
+
+	TSharedPtr<FJsonObject> JsonObject = JsonArray[0]->AsObject();
+	int32 BoxCount = JsonObject->GetIntegerField(TEXT("boxes"));
+
+	// Spawn cubes in a row
+	UWorld* World = GetWorld();
+	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (!World || !CubeMesh) return;
+
+	for (int32 i = 0; i < BoxCount; ++i)
+	{
+		FVector Location(i * 120.0f, 0.0f, 50.0f);
+		FRotator Rotation = FRotator::ZeroRotator;
+		FActorSpawnParameters SpawnParams;
+		AStaticMeshActor* CubeActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+		if (CubeActor)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to load sphere mesh"));
-			return;
-		}
-
-		// Load plane mesh for the floor
-		UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
-		if (!PlaneMesh)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to load plane mesh"));
-			return;
-		}
-
-		// Spawn the floor first
-		FVector FloorLocation = FVector(0.0f, 0.0f, -50.0f); // Below the ball
-		FRotator FloorRotation = FRotator::ZeroRotator;
-		FActorSpawnParameters FloorSpawnParams;
-		FloorSpawnParams.Owner = this;
-
-		AStaticMeshActor* FloorActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), FloorLocation, FloorRotation, FloorSpawnParams);
-		if (FloorActor)
-		{
-			UStaticMeshComponent* FloorMeshComp = FloorActor->GetStaticMeshComponent();
-			FloorMeshComp->SetStaticMesh(PlaneMesh);
-			FloorMeshComp->SetMobility(EComponentMobility::Static);
-			FloorActor->SetActorScale3D(FVector(20.0f, 20.0f, 1.0f)); // Large floor
-			
-			// Enable physics on the floor
-			FloorMeshComp->SetSimulatePhysics(false); // Floor doesn't move
-			FloorMeshComp->SetEnableGravity(false);
-			FloorMeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			
-			UE_LOG(LogTemp, Log, TEXT("Spawned floor at location: %s"), *FloorLocation.ToString());
-		}
-
-		// Spawn the physics ball
-		FVector BallLocation = FVector(0.0f, 0.0f, 200.0f); // High above the floor
-		FRotator BallRotation = FRotator::ZeroRotator;
-		FActorSpawnParameters BallSpawnParams;
-		BallSpawnParams.Owner = this;
-
-		AStaticMeshActor* BallActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), BallLocation, BallRotation, BallSpawnParams);
-		if (BallActor)
-		{
-			UStaticMeshComponent* BallMeshComp = BallActor->GetStaticMeshComponent();
-			BallMeshComp->SetStaticMesh(SphereMesh);
-			BallMeshComp->SetMobility(EComponentMobility::Movable);
-			BallActor->SetActorScale3D(FVector(1.0f, 1.0f, 1.0f)); // Normal size ball
-			
-			// Enable physics on the ball
-			BallMeshComp->SetSimulatePhysics(true);
-			BallMeshComp->SetEnableGravity(true);
-			BallMeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-			
-			// Create a bouncy physics material
-			UPhysicalMaterial* BouncyMaterial = NewObject<UPhysicalMaterial>();
-			if (BouncyMaterial)
-			{
-				BouncyMaterial->Restitution = 1.0f;  // Very bouncy (0.0 = no bounce, 1.0 = perfect bounce)
-				BouncyMaterial->Friction = 0.1f;      // Low friction for more sliding/bouncing
-				BouncyMaterial->FrictionCombineMode = EFrictionCombineMode::Average;
-				
-				// Apply the bouncy material to the ball
-				BallMeshComp->SetPhysMaterialOverride(BouncyMaterial);
-			}
-			
-			// Apply the selected material if one is assigned
-			if (BlockMaterial)
-			{
-				BallMeshComp->SetMaterial(0, BlockMaterial);
-			}
-			
-			UE_LOG(LogTemp, Log, TEXT("Spawned bouncy physics ball at location: %s"), *BallLocation.ToString());
+			UStaticMeshComponent* MeshComp = CubeActor->GetStaticMeshComponent();
+			MeshComp->SetStaticMesh(CubeMesh);
+			MeshComp->SetMobility(EComponentMobility::Movable);
+			CubeActor->SetActorScale3D(FVector(1.0f));
 		}
 	}
 }
