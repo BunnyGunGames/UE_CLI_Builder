@@ -40,8 +40,12 @@ void ACoolSpawner::BeginPlay()
 	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (!World || !CubeMesh) return;
 
-	for (const TSharedPtr<FJsonValue>& JsonValue : JsonArray)
+	// Clear any existing boxes
+	SpawnedBoxes.Empty();
+	
+	for (int32 i = 0; i < JsonArray.Num(); ++i)
 	{
+		const TSharedPtr<FJsonValue>& JsonValue = JsonArray[i];
 		if (!JsonValue->AsObject().IsValid())
 		{
 			continue;
@@ -73,14 +77,59 @@ void ACoolSpawner::BeginPlay()
 				MeshComp->SetMaterial(0, BlockMaterial);
 			}
 			
-			UE_LOG(LogTemp, Log, TEXT("Spawned box %d at location (%f, %f, %f)"), BoxNumber, X, Y, Z);
+			// Store box data for animation
+			FBoxData BoxData;
+			BoxData.Actor = CubeActor;
+			BoxData.OriginalZ = Z;
+			BoxData.StartTime = i * StaggerDelay; // Stagger the start times
+			BoxData.bIsAnimating = false;
+			SpawnedBoxes.Add(BoxData);
+			
+			UE_LOG(LogTemp, Log, TEXT("Spawned box %d at location (%f, %f, %f) with start time %f"), BoxNumber, X, Y, Z, BoxData.StartTime);
 		}
 	}
+	
+	// Start the animation timer
+	AnimationStartTime = GetWorld()->GetTimeSeconds();
 }
 
 // Called every frame
 void ACoolSpawner::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Animate the boxes
+	float CurrentTime = GetWorld()->GetTimeSeconds() - AnimationStartTime;
+	
+	for (FBoxData& BoxData : SpawnedBoxes)
+	{
+		if (!BoxData.Actor || !BoxData.Actor->IsValidLowLevel())
+		{
+			continue;
+		}
+		
+		// Check if it's time to start animating this box
+		if (CurrentTime >= BoxData.StartTime && !BoxData.bIsAnimating)
+		{
+			BoxData.bIsAnimating = true;
+		}
+		
+		// Animate the box if it's in animation phase
+		if (BoxData.bIsAnimating)
+		{
+			float AnimationTime = CurrentTime - BoxData.StartTime;
+			float AnimationProgress = FMath::Clamp(AnimationTime / AnimationDuration, 0.0f, 1.0f);
+			
+			// Use a smooth easing function for the animation
+			float EasedProgress = FMath::InterpEaseOut(0.0f, 1.0f, AnimationProgress, 2.0f);
+			
+			// Calculate new Z position
+			float NewZ = BoxData.OriginalZ + (MaxHeightIncrease * EasedProgress);
+			
+			// Update actor position
+			FVector CurrentLocation = BoxData.Actor->GetActorLocation();
+			BoxData.Actor->SetActorLocation(FVector(CurrentLocation.X, CurrentLocation.Y, NewZ));
+		}
+	}
 }
 
